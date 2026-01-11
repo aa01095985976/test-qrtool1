@@ -199,13 +199,18 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ============ 启动服务器 ============
-app.listen(PORT, () => {
-    console.log('');
-    console.log('╔════════════════════════════════════════════════╗');
-    console.log('║       🎯 二维码生成工具 - 后端服务              ║');
-    console.log('╠════════════════════════════════════════════════╣');
-    console.log(`║  🚀 服务启动成功: http://localhost:${PORT}         ║`);
-    console.log('║  📦 Supabase 数据库已连接                       ║');
-    console.log('╚════════════════════════════════════════════════╝');
-    console.log('');
-});
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log('');
+        console.log('╔════════════════════════════════════════════════╗');
+        console.log('║       🎯 二维码生成工具 - 后端服务              ║');
+        console.log('╠════════════════════════════════════════════════╣');
+        console.log(`║  🚀 服务启动成功: http://localhost:${PORT}         ║`);
+        console.log('║  📦 Supabase 数据库已连接                       ║');
+        console.log('╚════════════════════════════════════════════════╝');
+        console.log('');
+    });
+}
+
+// 导出 app 供 Vercel 使用
+module.exports = app;
