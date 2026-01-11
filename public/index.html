@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码生成工具 - 云端版</title>
+    <meta name="description" content="在线二维码生成工具，支持云端历史记录存储">
+    <!-- 引入 QRCode.js 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f2ff;
+            --secondary: #bd00ff;
+            --accent: #ff6b35;
+            --bg-dark: #0f172a;
+            --bg-darker: #0a0f1c;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 动态背景光效 */
+        body::before,
+        body::after {
+            content: '';
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            animation: float 15s infinite alternate;
+            opacity: 0.6;
+        }
+
+        body::before {
+            background: var(--secondary);
+            top: -10%;
+            left: -5%;
+        }
+
+        body::after {
+            background: var(--primary);
+            bottom: -10%;
+            right: -5%;
+            animation-delay: -7s;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            50% {
+                transform: translate(30px, 30px) scale(1.1);
+            }
+
+            100% {
+                transform: translate(-20px, 50px) scale(0.95);
+            }
+        }
+
+        /* 顶部导航 */
+        .header {
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3);
+        }
+
+        .logo-text {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.disconnected {
+            background: var(--danger);
+            animation: none;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* 主容器 */
+        .main-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 2rem;
+            width: 100%;
+            max-width: 1100px;
+            min-height: 550px;
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2rem;
+            background: var(--glass-bg);
+            box-shadow:
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                inset 0 1px 1px rgba(255, 255, 255, 0.05);
+        }
+
+        /* 左侧生成区 */
+        .generator-section {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 二维码容器 */
+        #qrcode-container {
+            width: 280px;
+            height: 280px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px dashed var(--glass-border);
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #qrcode-container.active {
+            background: white;
+            border: none;
+            box-shadow:
+                0 0 50px rgba(0, 242, 255, 0.3),
+                0 20px 40px rgba(0, 0, 0, 0.4);
+            transform: scale(1.02);
+        }
+
+        #qrcode-container.empty::after {
+            content: '📱 等待生成';
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+        }
+
+        .input-group {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.2rem;
+            color: white;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow:
+                0 0 20px rgba(0, 242, 255, 0.15),
+                inset 0 0 10px rgba(0, 242, 255, 0.05);
+        }
+
+        textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: white;
+            border: none;
+            padding: 1.1rem;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow:
+                0 4px 20px rgba(189, 0, 255, 0.4),
+                inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow:
+                0 8px 30px rgba(189, 0, 255, 0.5),
+                inset 0 1px 1px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 右侧历史区 */
+        .history-section {
+            border-left: 1px solid var(--glass-border);
+            padding-left: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .history-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .history-count {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+
+        .clear-btn {
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .clear-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        /* 滚动条美化 */
+        .history-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .history-list::-webkit-scrollbar-thumb {
+            background: linear-gradient(var(--primary), var(--secondary));
+            border-radius: 10px;
+        }
+
+        .history-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 0.9rem;
+            margin-bottom: 0.6rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border: 1px solid transparent;
+            position: relative;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--primary);
+            transform: translateX(3px);
+        }
+
+        .history-content {
+            font-size: 0.85rem;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 6px;
+            padding-right: 20px;
+            font-weight: 500;
+        }
+
+        .history-time {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* 删除小图标 */
+        .history-delete {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            color: var(--danger);
+            font-size: 1rem;
+            line-height: 0.8;
+            opacity: 0;
+            transition: all 0.2s;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .history-item:hover .history-delete {
+            opacity: 1;
+        }
+
+        .history-delete:hover {
+            background: rgba(239, 68, 68, 0.3);
+            transform: scale(1.1);
+        }
+
+        /* 加载状态 */
+        .loading-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--glass-border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 3rem;
+        }
+
+        .empty-state-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            opacity: 0.5;
+        }
+
+        /* Toast 通知 */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* 响应式 */
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+                padding: 1.5rem;
+            }
+
+            .history-section {
+                border-left: none;
+                border-top: 1px solid var(--glass-border);
+                padding-left: 0;
+                padding-top: 1.5rem;
+                max-height: 350px;
+            }
+
+            .header {
+                padding: 0.75rem 1rem;
+            }
+
+            .logo-text {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 顶部导航 -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">📊</div>
+            <span class="logo-text">QR Code Tool</span>
+        </div>
+        <div class="status-badge">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">正在连接...</span>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <div class="container">
+            <!-- 生成区域 -->
+            <div class="generator-section">
+                <div id="qrcode-container" class="empty"></div>
+
+                <div class="input-group">
+                    <textarea id="textInput" placeholder="输入文本、链接或任意内容生成二维码..."></textarea>
+                    <button class="btn-primary" id="generateBtn">🚀 立即生成</button>
+                </div>
+            </div>
+
+            <!-- 历史记录区域 -->
+            <div class="history-section">
+                <div class="history-header">
+                    <h2>
+                        ☁️ 云端历史
+                        <span class="history-count" id="historyCount">0</span>
+                    </h2>
+                    <button class="clear-btn" id="clearHistoryBtn">清空全部</button>
+                </div>
+                <div class="history-list" id="historyList">
+                    <div class="empty-state">
+                        <div class="loading-spinner" style="margin: 0 auto;"></div>
+                        <p style="margin-top: 1rem;">加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ============ API 配置 ============
+        const API_BASE = '/api';
+
+        // ============ DOM 元素 ============
+        const textInput = document.getElementById('textInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const qrContainer = document.getElementById('qrcode-container');
+        const historyList = document.getElementById('historyList');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const historyCount = document.getElementById('historyCount');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const toastContainer = document.getElementById('toastContainer');
+
+        // ============ 状态 ============
+        let historyData = [];
+        let isLoading = false;
+
+        // ============ 初始化 ============
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkHealth();
+            await loadHistory();
+        });
+
+        // ============ 健康检查 ============
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const result = await response.json();
+
+                if (result.success && result.database === 'connected') {
+                    statusDot.classList.remove('disconnected');
+                    statusText.textContent = '云端已连接';
+                } else {
+                    throw new Error('Database disconnected');
+                }
+            } catch (error) {
+                statusDot.classList.add('disconnected');
+                statusText.textContent = '连接失败';
+                showToast('无法连接到服务器', 'error');
+            }
+        }
+
+        // ============ 加载历史记录 ============
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/history`);
+                const result = await response.json();
+
+                if (result.success) {
+                    historyData = result.data;
+                    renderHistory();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('加载历史失败:', error);
+                historyList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>加载失败，请刷新重试</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ============ 生成按钮事件 ============
+        generateBtn.addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            if (!text || isLoading) return;
+
+            generateQR(text);
+            await addToHistory(text);
+        });
+
+        // 回车快捷键
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                generateBtn.click();
+            }
+        });
+
+        // ============ 生成二维码 ============
+        function generateQR(text) {
+            qrContainer.innerHTML = '';
+            qrContainer.classList.remove('empty');
+            qrContainer.classList.add('active');
+
+            new QRCode(qrContainer, {
+                text: text,
+                width: 240,
+                height: 240,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        // ============ 添加历史记录 ============
+        async function addToHistory(text) {
+            if (isLoading) return;
+            isLoading = true;
+            generateBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/history`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadHistory(); // 重新加载列表
+                    showToast('✅ 已保存到云端', 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                showToast('保存失败: ' + error.message, 'error');
+            } finally {
+                isLoading = false;
+                generateBtn.disabled = false;
+            }
+        }
+
+        // ============ 删除单条记录 ============
+        async function deleteItem(e, id) {
+            e.stopPropagation();
+
+            try {
+                const response = await fetch(`${API_BASE}/history/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    await loadHistory();
+                    showToast('已删除', 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                showToast('删除失败', 'error');
+            }
+        }
+        window.deleteItem = deleteItem;
+
+        // ============ 清空所有记录 ============
+        clearHistoryBtn.addEventListener('click', async () => {
+            if (historyData.length === 0) return;
+
+            if (!confirm('确定要清空所有历史记录吗？此操作不可恢复。')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/history`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    historyData = [];
+                    qrContainer.innerHTML = '';
+                    qrContainer.classList.remove('active');
+                    qrContainer.classList.add('empty');
+                    textInput.value = '';
+                    renderHistory();
+                    showToast('已清空所有记录', 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('清空失败:', error);
+                showToast('清空失败', 'error');
+            }
+        });
+
+        // ============ 渲染历史列表 ============
+        function renderHistory() {
+            historyCount.textContent = historyData.length;
+            historyList.innerHTML = '';
+
+            if (historyData.length === 0) {
+                historyList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>暂无历史记录</p>
+                        <p style="margin-top: 0.5rem; font-size: 0.75rem;">生成的二维码会自动保存到云端</p>
+                    </div>
+                `;
+                return;
+            }
+
+            historyData.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <div class="history-content">${escapeHtml(item.text)}</div>
+                    <div class="history-time">⏰ ${item.time}</div>
+                    <span class="history-delete" onclick="deleteItem(event, '${item.id}')">×</span>
+                `;
+
+                div.addEventListener('click', () => {
+                    textInput.value = item.text;
+                    generateQR(item.text);
+                });
+
+                historyList.appendChild(div);
+            });
+        }
+
+        // ============ Toast 通知 ============
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // ============ 工具函数 ============
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+
+</html>

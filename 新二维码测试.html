@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二维码测试工具</title>
+    <!-- 引入 QRCode.js 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary: #00f2ff;
+            --secondary: #bd00ff;
+            --bg-dark: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 动态背景光效 */
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: -1;
+            animation: float 10s infinite alternate;
+        }
+
+        body::before {
+            background: var(--secondary);
+            top: 10%;
+            left: 10%;
+        }
+
+        body::after {
+            background: var(--primary);
+            bottom: 10%;
+            right: 10%;
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 2rem;
+            width: 90%;
+            max-width: 1000px;
+            height: 80vh;
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2rem;
+            background: var(--glass-bg);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 左侧生成区 */
+        .generator-section {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 二维码容器 */
+        #qrcode-container {
+            width: 260px;
+            height: 260px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+            transition: 0.3s;
+        }
+        
+        #qrcode-container.active {
+            background: white; /* 生成后变白 */
+            box-shadow: 0 0 40px rgba(0, 242, 255, 0.2);
+        }
+
+        #qrcode-container.empty::after {
+            content: '等待生成';
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+        }
+
+        .input-group {
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1rem;
+            color: white;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(189, 0, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(189, 0, 255, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        /* 右侧历史区 */
+        .history-section {
+            border-left: 1px solid var(--glass-border);
+            padding-left: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .history-header h2 {
+            font-size: 1.2rem;
+            color: var(--text-main);
+        }
+
+        .clear-btn {
+            color: #ff4757;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .clear-btn:hover { opacity: 1; text-decoration: underline; }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* 滚动条美化 */
+        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .history-list::-webkit-scrollbar-track { background: transparent; }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 0.8rem;
+            margin-bottom: 0.6rem;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 1px solid transparent;
+            position: relative;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+        }
+
+        .history-content {
+            font-size: 0.85rem;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+            padding-right: 15px;
+        }
+
+        .history-time {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* 删除小图标 */
+        .history-delete {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            color: #ff4757;
+            font-size: 1rem;
+            line-height: 0.8;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        
+        .history-item:hover .history-delete { opacity: 1; }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+                padding: 1.5rem;
+            }
+            .history-section {
+                border-left: none;
+                border-top: 1px solid var(--glass-border);
+                padding-left: 0;
+                padding-top: 1.5rem;
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 生成区域 -->
+        <div class="generator-section">
+            <div id="qrcode-container" class="empty"></div>
+            
+            <div class="input-group">
+                <textarea id="textInput" placeholder="输入内容以生成二维码..."></textarea>
+                <button class="btn-primary" id="generateBtn">立即生成</button>
+            </div>
+        </div>
+
+        <!-- 历史记录区域 -->
+        <div class="history-section">
+            <div class="history-header">
+                <h2>历史记录</h2>
+                <button class="clear-btn" id="clearHistoryBtn">清空</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <div style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:20px;">
+                    暂无记录
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('textInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const qrContainer = document.getElementById('qrcode-container');
+        const historyList = document.getElementById('historyList');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        // 会话级历史数据 (刷新页面即消失)
+        let historyData = [];
+
+        // 生成按钮事件
+        generateBtn.addEventListener('click', () => {
+            const text = textInput.value.trim();
+            if (!text) return;
+            
+            generateQR(text);
+            addToHistory(text);
+        });
+
+        // 生成二维码逻辑
+        function generateQR(text) {
+            qrContainer.innerHTML = '';
+            qrContainer.classList.remove('empty');
+            qrContainer.classList.add('active'); // 变白背景
+
+            new QRCode(qrContainer, {
+                text: text,
+                width: 220,
+                height: 220,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+
+        // 添加历史
+        function addToHistory(text) {
+            // 避免重复添加最新的一条
+            if (historyData.length > 0 && historyData[0].text === text) return;
+
+            const newItem = {
+                id: Date.now(),
+                text: text,
+                time: new Date().toLocaleTimeString()
+            };
+
+            historyData.unshift(newItem); // 加到最前面
+            if (historyData.length > 20) historyData.pop(); // 最多保留20条
+            
+            renderHistory();
+        }
+
+        // 渲染历史列表
+        function renderHistory() {
+            historyList.innerHTML = '';
+            
+            if (historyData.length === 0) {
+                historyList.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:20px;">暂无记录</div>';
+                return;
+            }
+
+            historyData.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <div class="history-content">${escapeHtml(item.text)}</div>
+                    <div class="history-time">${item.time}</div>
+                    <span class="history-delete" onclick="deleteItem(event, ${item.id})">×</span>
+                `;
+                
+                // 点击历史回填并重新生成
+                div.addEventListener('click', () => {
+                    textInput.value = item.text;
+                    generateQR(item.text);
+                });
+
+                historyList.appendChild(div);
+            });
+        }
+
+        // 删除单条
+        window.deleteItem = function(e, id) {
+            e.stopPropagation();
+            historyData = historyData.filter(item => item.id !== id);
+            renderHistory();
+        }
+
+        // 清空所有
+        clearHistoryBtn.addEventListener('click', () => {
+            historyData = [];
+            qrContainer.innerHTML = '';
+            qrContainer.classList.remove('active');
+            qrContainer.classList.add('empty');
+            textInput.value = '';
+            renderHistory();
+        });
+
+        // 简单转义防止XSS
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
