@@ -5,7 +5,8 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node server/index.js"
+    "dev": "node server/index.js",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -13,7 +14,11 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2"
   },
-  "keywords": ["qrcode", "fullstack", "supabase"],
+  "keywords": [
+    "qrcode",
+    "fullstack",
+    "supabase"
+  ],
   "author": "",
   "license": "ISC"
 }
